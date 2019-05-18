@@ -31,7 +31,7 @@ SString* TypeName::ToString(SString* pBuf, BOOL bAssemblySpec, BOOL bSignature, 
     TypeNameBuilder tnb(pBuf);
 
     for (COUNT_T i = 0; i < m_names.GetCount(); i ++)
-        tnb.AddName(m_names[i]->GetUnicode());
+        tnb.AddName(m_names[i] ? m_names[i]->GetUnicode() : NULL);
 
     return pBuf;
 }
@@ -180,7 +180,7 @@ void QCALLTYPE TypeName::QGetNames(TypeName * pTypeName, QCall::ObjectHandleOnSt
 
         for (COUNT_T i = 0; i < count; i++)
         {
-            STRINGREF str = StringObject::NewString(names[i]->GetUnicode());
+            STRINGREF str = StringObject::NewString(names[i] ? names[i]->GetUnicode() : NULL);
             pReturnNames->SetAt(i, str);
         }
 
@@ -1226,10 +1226,14 @@ TypeHandle TypeName::GetTypeFromAsm()
             {
                 TypeNameBuilder tnb;
                 for (COUNT_T i = 0; i < GetNames().GetCount(); i ++)
-                    tnb.AddName(GetNames()[i]->GetUnicode());
+                {
+                    SString* name = GetNames()[i];
+                    tnb.AddName(name ? name->GetUnicode() : NULL);
+                }
 
                 StackScratchBuffer bufFullName;
-                DomainAssembly* pDomainAssembly = pDomain->RaiseTypeResolveEventThrowing(pRequestingAssembly?pRequestingAssembly->GetDomainAssembly():NULL,tnb.GetString()->GetANSI(bufFullName), pAsmRef);
+                SString* tnbSstring = tnb.GetString();
+                DomainAssembly* pDomainAssembly = pDomain->RaiseTypeResolveEventThrowing(pRequestingAssembly?pRequestingAssembly->GetDomainAssembly():NULL,tnbSstring?tnbSstring->GetANSI(bufFullName):NULL, pAsmRef);
                 if (pDomainAssembly)
                     th = GetTypeHaveAssembly(pDomainAssembly->GetAssembly(), bThrowIfNotFound, bIgnoreCase, pKeepAlive);
             }
@@ -1321,7 +1325,8 @@ TypeHandle TypeName::GetTypeFromAsm()
     if (th.IsNull() && bThrowIfNotFound)
     {
         StackSString buf;
-        LPCWSTR wszName = ToString(&buf)->GetUnicode();
+        SString* bufString = ToString(&buf);
+        LPCWSTR wszName = bufString->GetUnicode();
         MAKE_UTF8PTR_FROMWIDE(szName, wszName);
 
         if (GetAssembly() && !GetAssembly()->IsEmpty())
@@ -1391,10 +1396,14 @@ TypeName::GetTypeHaveAssemblyHelper(
         for (COUNT_T i = 0; i < names.GetCount(); i ++)
         {
             // each extra name represents one more level of nesting
-            LPCWSTR wname = names[i]->GetUnicode();
+            StackSString name(*(names[i]));
 
-            MAKE_UTF8PTR_FROMWIDE(name, wname);
-            typeName.SetName(name);
+            // The type name is expected to be lower-cased by the caller for case-insensitive lookups
+            if (bIgnoreCase)
+                name.LowerCase();
+
+            StackScratchBuffer buffer;
+            typeName.SetName(name.GetUTF8(buffer));
 
             // typeName.m_pBucket gets set here if the type is found
             // it will be used in the next iteration to look up the nested type
@@ -1498,7 +1507,7 @@ DomainAssembly * LoadDomainAssembly(
     DomainAssembly *pDomainAssembly = NULL;
 
     StackScratchBuffer buffer;
-    LPCUTF8 szAssemblySpec = psszAssemblySpec->GetUTF8(buffer);
+    LPCUTF8 szAssemblySpec = psszAssemblySpec ? psszAssemblySpec->GetUTF8(buffer) : NULL;
     IfFailThrow(spec.Init(szAssemblySpec));
 
     if (spec.IsContentType_WindowsRuntime())

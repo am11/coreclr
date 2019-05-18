@@ -464,8 +464,6 @@ if (CLR_CMAKE_PLATFORM_UNIX)
     add_compile_options(-Wno-unused-private-field)
     # Explicit constructor calls are not supported by clang (this->ClassName::ClassName())
     add_compile_options(-Wno-microsoft)
-    # This warning is caused by comparing 'this' to NULL
-    add_compile_options(-Wno-tautological-compare)
     # There are constants of type BOOL used in a condition. But BOOL is defined as int
     # and so the compiler thinks that there is a mistake.
     add_compile_options(-Wno-constant-logical-operand)
@@ -485,6 +483,9 @@ if (CLR_CMAKE_PLATFORM_UNIX)
     add_compile_options(-Wno-unused-but-set-variable)
     add_compile_options(-fms-extensions)
     add_compile_options(-Wno-unknown-pragmas)
+    if (COMPILER_SUPPORTS_F_ALIGNED_NEW)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -faligned-new")
+    endif()
   endif()
 
   # Some architectures (e.g., ARM) assume char type is unsigned while CoreCLR assumes char is signed

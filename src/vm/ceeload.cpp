@@ -95,7 +95,7 @@
 
 #define NGEN_STATICS_ALLCLASSES_WERE_LOADED -1
 
-BOOL Module::HasInlineTrackingMap()
+BOOL Module::HasNativeOrReadyToRunInlineTrackingMap()
 {
     LIMITED_METHOD_DAC_CONTRACT;
 #ifdef FEATURE_READYTORUN
@@ -107,7 +107,7 @@ BOOL Module::HasInlineTrackingMap()
     return (m_pPersistentInlineTrackingMapNGen != NULL);
 }
 
-COUNT_T Module::GetInliners(PTR_Module inlineeOwnerMod, mdMethodDef inlineeTkn, COUNT_T inlinersSize, MethodInModule inliners[], BOOL *incompleteData)
+COUNT_T Module::GetNativeOrReadyToRunInliners(PTR_Module inlineeOwnerMod, mdMethodDef inlineeTkn, COUNT_T inlinersSize, MethodInModule inliners[], BOOL *incompleteData)
 {
     WRAPPER_NO_CONTRACT;
 #ifdef FEATURE_READYTORUN
@@ -123,11 +123,28 @@ COUNT_T Module::GetInliners(PTR_Module inlineeOwnerMod, mdMethodDef inlineeTkn, 
     return 0;
 }
 
+#if defined(PROFILING_SUPPORTED) && !defined(DACCESS_COMPILE) && !defined(CROSSGEN_COMPILE)
+BOOL Module::HasJitInlineTrackingMap()
+{
+    LIMITED_METHOD_CONTRACT;
 
-#ifndef DACCESS_COMPILE 
+    return m_pJitInlinerTrackingMap != NULL;
+}
 
+void Module::AddInlining(MethodDesc *inliner, MethodDesc *inlinee)
+{
+    STANDARD_VM_CONTRACT;
+    _ASSERTE(inliner != NULL && inlinee != NULL);
+    _ASSERTE(inlinee->GetModule() == this);
 
+    if (m_pJitInlinerTrackingMap != NULL)
+    {
+        m_pJitInlinerTrackingMap->AddInlining(inliner, inlinee);
+    }
+}
+#endif // defined(PROFILING_SUPPORTED) && !defined(DACCESS_COMPILE) && !defined(CROSSGEN_COMPILE)
 
+#ifndef DACCESS_COMPILE
 // ===========================================================================
 // Module
 // ===========================================================================
@@ -636,6 +653,14 @@ void Module::Initialize(AllocMemTracker *pamTracker, LPCWSTR szName)
     // module has EnC turned on.
     if (g_pConfig->ForceEnc() && IsEditAndContinueCapable())
         EnableEditAndContinue();
+
+#if defined(PROFILING_SUPPORTED) && !defined(DACCESS_COMPILE) && !defined(CROSSGEN_COMPILE)
+    m_pJitInlinerTrackingMap = NULL;
+    if (ReJitManager::IsReJITInlineTrackingEnabled())
+    {
+        m_pJitInlinerTrackingMap = new JITInlineTrackingMap(GetLoaderAllocator());
+    }
+#endif // defined (PROFILING_SUPPORTED) &&!defined(DACCESS_COMPILE) && !defined(CROSSGEN_COMPILE)
 
     LOG((LF_CLASSLOADER, LL_INFO10, "Loaded pModule: \"%ws\".\n", GetDebugName()));
 
@@ -7154,7 +7179,9 @@ TypeHandle Module::LoadIBCTypeHelper(DataImage *image, CORBBTPROF_BLOB_PARAM_SIG
     }
     EX_CATCH
     {
-        image->GetPreloader()->Error(pBlobSigEntry->blob.token, GET_EXCEPTION());
+        if (g_CorCompileVerboseLevel >= CORCOMPILE_VERBOSE)
+            image->GetPreloader()->Error(pBlobSigEntry->blob.token, GET_EXCEPTION());
+
         loadedType = TypeHandle();
     }
     EX_END_CATCH(SwallowAllExceptions)
@@ -7211,7 +7238,9 @@ MethodDesc* Module::LoadIBCMethodHelper(DataImage *image, CORBBTPROF_BLOB_PARAM_
     }
     EX_CATCH
     {
-        image->GetPreloader()->Error(pBlobSigEntry->blob.token, GET_EXCEPTION());
+        if (g_CorCompileVerboseLevel >= CORCOMPILE_VERBOSE)
+            image->GetPreloader()->Error(pBlobSigEntry->blob.token, GET_EXCEPTION());
+
         enclosingType = TypeHandle();
     }
     EX_END_CATCH(SwallowAllExceptions)
@@ -7659,7 +7688,7 @@ void Module::ExpandAll(DataImage *image)
     // Load all the reported parameterized types and methods
     //
     CorProfileData *  profileData = this->GetProfileData();
-    CORBBTPROF_BLOB_ENTRY *pBlobEntry = profileData->GetBlobStream();
+    CORBBTPROF_BLOB_ENTRY *pBlobEntry = profileData ? profileData->GetBlobStream() : NULL;
     
     if (pBlobEntry != NULL)
     {
@@ -7693,8 +7722,8 @@ void Module::ExpandAll(DataImage *image)
     // Record references to all of the hot methods specifiled by MethodProfilingData array
     // We call MethodReferencedByCompiledCode to indicate that we plan on compiling this method
     //
-    CORBBTPROF_TOKEN_INFO * pMethodProfilingData = profileData->GetTokenFlagsData(MethodProfilingData);
-    DWORD                   cMethodProfilingData = profileData->GetTokenFlagsCount(MethodProfilingData);
+    CORBBTPROF_TOKEN_INFO * pMethodProfilingData = profileData ? profileData->GetTokenFlagsData(MethodProfilingData) : NULL;
+    DWORD                   cMethodProfilingData = profileData ? profileData->GetTokenFlagsCount(MethodProfilingData) : NULL;
     for (unsigned int i = 0; (i < cMethodProfilingData); i++)
     {
         mdToken token = pMethodProfilingData[i].token;
@@ -7891,7 +7920,7 @@ void ModuleCtorInfo::Save(DataImage *image, CorProfileData *profileData)
         totalBoxedStatics += ppMTTemp->GetNumBoxedRegularStatics();
 
         bool hot = true; // if there's no profiling data, assume the entries are all hot.
-        if (profileData->GetTokenFlagsData(TypeProfilingData))
+        if (profileData && profileData->GetTokenFlagsData(TypeProfilingData))
         {
             if ((profileData->GetTypeProfilingFlagsOfToken(ppMTTemp->GetCl()) & (1 << ReadCCtorInfo)) == 0)
                 hot = false;
@@ -8311,8 +8340,8 @@ void Module::Save(DataImage *image)
         // also be placed together, at least if we don't have any further information to go on.
         // Note we place particular hot items with more care in the Arrange phase.
         //
-        CORBBTPROF_TOKEN_INFO * pTypeProfilingData = profileData->GetTokenFlagsData(TypeProfilingData);
-        DWORD                   cTypeProfilingData = profileData->GetTokenFlagsCount(TypeProfilingData);
+        CORBBTPROF_TOKEN_INFO * pTypeProfilingData = profileData ? profileData->GetTokenFlagsData(TypeProfilingData) : NULL;
+        DWORD                   cTypeProfilingData = profileData ? profileData->GetTokenFlagsCount(TypeProfilingData) : NULL;
 
         for (unsigned int i = 0; i < cTypeProfilingData; i++)
         {
@@ -8336,7 +8365,7 @@ void Module::Save(DataImage *image)
             }
             else  if (TypeFromToken(token) == ibcTypeSpec)
             {
-                CORBBTPROF_BLOB_ENTRY *pBlobEntry = profileData->GetBlobStream();
+                CORBBTPROF_BLOB_ENTRY *pBlobEntry = profileData ? profileData->GetBlobStream() : NULL;
                 if (pBlobEntry)
                 {
                     while (pBlobEntry->TypeIsValid())
@@ -8372,8 +8401,8 @@ void Module::Save(DataImage *image)
             // If we have V1 IBC data then we save the hot
             //  out-of-module generic instantiations here
 
-            CORBBTPROF_TOKEN_INFO * tokens_begin = profileData->GetTokenFlagsData(GenericTypeProfilingData);
-            CORBBTPROF_TOKEN_INFO * tokens_end = tokens_begin + profileData->GetTokenFlagsCount(GenericTypeProfilingData);
+            CORBBTPROF_TOKEN_INFO * tokens_begin = profileData ? profileData->GetTokenFlagsData(GenericTypeProfilingData) : NULL;
+            CORBBTPROF_TOKEN_INFO * tokens_end = tokens_begin + (profileData ? profileData->GetTokenFlagsCount(GenericTypeProfilingData) : 0);
 
             if (tokens_begin != tokens_end)
             {
@@ -9070,8 +9099,8 @@ void Module::Arrange(DataImage *image)
         //
         // Place hot type structues in the order specifiled by TypeProfilingData array
         //
-        CORBBTPROF_TOKEN_INFO * pTypeProfilingData = profileData->GetTokenFlagsData(TypeProfilingData);
-        DWORD                   cTypeProfilingData = profileData->GetTokenFlagsCount(TypeProfilingData);
+        CORBBTPROF_TOKEN_INFO * pTypeProfilingData = profileData ? profileData->GetTokenFlagsData(TypeProfilingData) : NULL;
+        DWORD                   cTypeProfilingData = profileData ? profileData->GetTokenFlagsCount(TypeProfilingData) : NULL;
         for (unsigned int i = 0; (i < cTypeProfilingData); i++)
         {
             CORBBTPROF_TOKEN_INFO * entry = &pTypeProfilingData[i];
@@ -9142,8 +9171,8 @@ void Module::Arrange(DataImage *image)
         //
         // Place hot methods and method data in the order specifiled by MethodProfilingData array
         //
-        CORBBTPROF_TOKEN_INFO * pMethodProfilingData = profileData->GetTokenFlagsData(MethodProfilingData);
-        DWORD                   cMethodProfilingData = profileData->GetTokenFlagsCount(MethodProfilingData);
+        CORBBTPROF_TOKEN_INFO * pMethodProfilingData = profileData ? profileData->GetTokenFlagsData(MethodProfilingData) : NULL;
+        DWORD                   cMethodProfilingData = profileData ? profileData->GetTokenFlagsCount(MethodProfilingData) : NULL;
         for (unsigned int i = 0; (i < cMethodProfilingData); i++)
         {
             mdToken token          = pMethodProfilingData[i].token;
@@ -11770,7 +11799,7 @@ static void ProfileDataAllocateScenarioInfo(ProfileEmitter * pEmitter, LPCSTR sc
         // Get the managed command line.
         LPCWSTR pCmdLine = GetManagedCommandLine();
 
-        // If this process started as a service we won't have a managed command line
+        // Checkout https://github.com/dotnet/coreclr/pull/24433 for more information about this fall back.
         if (pCmdLine == nullptr)
         {
             // Use the result from GetCommandLineW() instead

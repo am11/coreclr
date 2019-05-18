@@ -268,8 +268,6 @@ inline PTR_PEAssembly PEFile::AsAssembly()
 {
     LIMITED_METHOD_DAC_CONTRACT;
 
-    if (this == nullptr)
-        return dac_cast<PTR_PEAssembly>(nullptr);
     if (IsAssembly())
         return dac_cast<PTR_PEAssembly>(this);
     else
@@ -288,8 +286,6 @@ inline PTR_PEModule PEFile::AsModule()
 {
     LIMITED_METHOD_DAC_CONTRACT;
 
-    if (this == nullptr)
-        return dac_cast<PTR_PEModule>(nullptr);
     if (IsModule())
         return dac_cast<PTR_PEModule>(this);
     else

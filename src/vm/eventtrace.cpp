@@ -3844,9 +3844,6 @@ VOID ETW::EnumerationLog::StartRundown()
 
     EX_TRY
     {
-        BOOL bIsArmRundownEnabled = ETW_TRACING_CATEGORY_ENABLED(MICROSOFT_WINDOWS_DOTNETRUNTIME_RUNDOWN_PROVIDER_Context,
-                                                                 TRACE_LEVEL_INFORMATION,
-                                                                 CLR_RUNDOWNAPPDOMAINRESOURCEMANAGEMENT_KEYWORD);
         BOOL bIsPerfTrackRundownEnabled = ETW_TRACING_CATEGORY_ENABLED(MICROSOFT_WINDOWS_DOTNETRUNTIME_RUNDOWN_PROVIDER_Context,
                                                                  TRACE_LEVEL_INFORMATION,
                                                                  CLR_RUNDOWNPERFTRACK_KEYWORD);
@@ -3868,8 +3865,6 @@ VOID ETW::EnumerationLog::StartRundown()
            ETW_TRACING_CATEGORY_ENABLED(MICROSOFT_WINDOWS_DOTNETRUNTIME_RUNDOWN_PROVIDER_Context, 
                                         TRACE_LEVEL_INFORMATION, 
                                         CLR_RUNDOWNJITTEDMETHODILTONATIVEMAP_KEYWORD)
-           ||
-           bIsArmRundownEnabled
            ||
            bIsPerfTrackRundownEnabled
            ||
@@ -3909,17 +3904,7 @@ VOID ETW::EnumerationLog::StartRundown()
 
             ETW::EnumerationLog::EnumerationHelper(NULL, NULL, enumerationOptions);
             
-            if (bIsArmRundownEnabled)
-            {
-                // When an ETW event consumer asks for ARM rundown, that not only enables
-                // the ETW events, but also causes some minor behavioral changes in the
-                // CLR, such as gathering CPU usage baselines for each thread right now,
-                // and also gathering resource usage information later on (keyed off of
-                // g_fEnableARM, which we'll set right now).
-                EnableARM();
-            }
-
-            if (bIsArmRundownEnabled || bIsThreadingRundownEnabled)
+            if (bIsThreadingRundownEnabled)
             {
                 SendThreadRundownEvent();
             }
@@ -6245,9 +6230,9 @@ VOID ETW::MethodLog::SendMethodJitStartEvent(MethodDesc *pMethodDesc, SString *n
 
         // fire method information
         /* prepare events args for ETW and ETM */
-        szDtraceOutput1 = (PCWSTR)namespaceOrClassName->GetUnicode();
-        szDtraceOutput2 = (PCWSTR)methodName->GetUnicode();
-        szDtraceOutput3 = (PCWSTR)methodSignature->GetUnicode();
+        szDtraceOutput1 = namespaceOrClassName ? (PCWSTR)namespaceOrClassName->GetUnicode() : NULL;
+        szDtraceOutput2 = methodName ? (PCWSTR)methodName->GetUnicode() : NULL;
+        szDtraceOutput3 = methodSignature ? (PCWSTR)methodSignature->GetUnicode() : NULL;
 
         FireEtwMethodJittingStarted_V1(ullMethodIdentifier, 
                                        ullModuleID, 
@@ -6397,9 +6382,9 @@ VOID ETW::MethodLog::SendMethodEvent(MethodDesc *pMethodDesc, DWORD dwEventOptio
             methodName = &tMethodName;
             methodSignature = &tMethodSignature;
         }
-        pNamespaceName = (PWCHAR)namespaceOrClassName->GetUnicode();
-        pMethodName = (PWCHAR)methodName->GetUnicode();
-        pMethodSignature = (PWCHAR)methodSignature->GetUnicode();
+        pNamespaceName = namespaceOrClassName ? (PWCHAR)namespaceOrClassName->GetUnicode() : NULL;
+        pMethodName = methodName ? (PWCHAR)methodName->GetUnicode() : NULL;
+        pMethodSignature = methodSignature ? (PWCHAR)methodSignature->GetUnicode() : NULL;
     }
 
     BOOL bFireEventForColdSection = (bHasNativeImage && ullColdMethodStartAddress && ulColdMethodSize);
