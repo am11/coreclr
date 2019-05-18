@@ -464,8 +464,6 @@ if (CLR_CMAKE_PLATFORM_UNIX)
     add_compile_options(-Wno-unused-private-field)
     # Explicit constructor calls are not supported by clang (this->ClassName::ClassName())
     add_compile_options(-Wno-microsoft)
-    # This warning is caused by comparing 'this' to NULL
-    add_compile_options(-Wno-tautological-compare)
     # There are constants of type BOOL used in a condition. But BOOL is defined as int
     # and so the compiler thinks that there is a mistake.
     add_compile_options(-Wno-constant-logical-operand)
