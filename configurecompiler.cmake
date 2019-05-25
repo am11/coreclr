@@ -335,6 +335,10 @@ if(CLR_CMAKE_PLATFORM_FREEBSD)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld -Xlinker --build-id=sha1")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld -Xlinker --build-id=sha1")
 endif(CLR_CMAKE_PLATFORM_FREEBSD)
+if(CLR_CMAKE_PLATFORM_SUNOS)
+  set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -Wa,--noexecstack")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__EXTENSIONS__")
+endif(CLR_CMAKE_PLATFORM_SUNOS)
 
 #------------------------------------
 # Definitions (for platform)
@@ -392,6 +396,10 @@ if (CLR_CMAKE_PLATFORM_UNIX)
   if(CLR_CMAKE_PLATFORM_NETBSD)
     message("Detected NetBSD amd64")
   endif(CLR_CMAKE_PLATFORM_NETBSD)
+
+  if(CLR_CMAKE_PLATFORM_SUNOS)
+    message("Detected SunOS amd64")
+  endif(CLR_CMAKE_PLATFORM_SUNOS)
 endif(CLR_CMAKE_PLATFORM_UNIX)
 
 if (WIN32)
@@ -453,7 +461,7 @@ if (CLR_CMAKE_PLATFORM_UNIX)
   add_compile_options(-Wno-unused-function)
 
   #These seem to indicate real issues
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-offsetof -Wno-class-memaccess")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-offsetof -fpermissive")
 
   if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     # The -ferror-limit is helpful during the porting, it makes sure the compiler doesn't stop

@@ -200,7 +200,7 @@ dwarf_put (struct dwarf_cursor *c, dwarf_loc_t loc, unw_word_t val)
 #define tdep_get_exe_image_path         UNW_ARCH_OBJ(get_exe_image_path)
 #define tdep_access_reg                 UNW_OBJ(access_reg)
 #define tdep_access_fpreg               UNW_OBJ(access_fpreg)
-#if __linux__
+#if __linux__ || __sun
 # define tdep_fetch_frame               UNW_OBJ(fetch_frame)
 # define tdep_cache_frame               UNW_OBJ(cache_frame)
 # define tdep_reuse_frame               UNW_OBJ(reuse_frame)
@@ -232,7 +232,11 @@ dwarf_put (struct dwarf_cursor *c, dwarf_loc_t loc, unw_word_t val)
 #define tdep_get_ip(c)                  ((c)->dwarf.ip)
 #define tdep_big_endian(as)             0
 
+#ifdef HAVE_ATOMIC_OPS_H
+extern AO_t tdep_init_done;
+#else
 extern int tdep_init_done;
+#endif
 
 extern void tdep_init (void);
 extern void tdep_init_mem_validate (void);
@@ -248,7 +252,7 @@ extern int tdep_access_reg (struct cursor *c, unw_regnum_t reg,
                             unw_word_t *valp, int write);
 extern int tdep_access_fpreg (struct cursor *c, unw_regnum_t reg,
                               unw_fpreg_t *valp, int write);
-#if __linux__
+#if __linux__ || __sun
 extern void tdep_fetch_frame (struct dwarf_cursor *c, unw_word_t ip,
                               int need_unwind_info);
 extern int tdep_cache_frame (struct dwarf_cursor *c);

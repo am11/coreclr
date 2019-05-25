@@ -2503,6 +2503,8 @@ PALIMPORT BOOL PALAPI PAL_VirtualUnwindOutOfProc(CONTEXT *context, KNONVOLATILE_
 #define PAL_CS_NATIVE_DATA_SIZE 56
 #elif defined(__NetBSD__) && defined(__i386__)
 #define PAL_CS_NATIVE_DATA_SIZE 56
+#elif defined(__sun) && defined(__amd64__)
+#define PAL_CS_NATIVE_DATA_SIZE 48
 #else
 #warning
 #error  PAL_CS_NATIVE_DATA_SIZE is not defined for this architecture
@@ -4313,6 +4315,10 @@ PALIMPORT DLLEXPORT errno_t __cdecl _i64tow_s(long long, WCHAR *, size_t, int);
 PALIMPORT int __cdecl _wtoi(const WCHAR *);
 
 #ifdef __cplusplus
+#undef _S
+#undef _C
+#undef _P
+
 extern "C++" {
 inline WCHAR *PAL_wcschr(WCHAR *_S, WCHAR _C)
         {return ((WCHAR *)PAL_wcschr((const WCHAR *)_S, _C)); }

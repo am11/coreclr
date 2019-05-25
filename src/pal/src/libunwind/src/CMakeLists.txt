@@ -58,7 +58,7 @@ elseif(CLR_CMAKE_PLATFORM_ARCH_I386)
     # Disable warning for a bug in the libunwind source src/x86/Gos-linux.c, but not in code that we exercise
     add_compile_options(-Wno-incompatible-pointer-types)
 endif()
-
+   add_compile_options(-Wno-incompatible-pointer-types)
 SET(libunwind_ptrace_la_SOURCES
     ptrace/_UPT_elf.c
     ptrace/_UPT_accessors.c ptrace/_UPT_access_fpreg.c
@@ -115,6 +115,10 @@ SET(libunwind_la_SOURCES_os_freebsd_local
 # Nothing
 )
 
+SET(libunwind_la_SOURCES_os_solaris
+    os-solaris.c
+)
+
 if(CLR_CMAKE_PLATFORM_LINUX)
     SET(libunwind_la_SOURCES_os                 ${libunwind_la_SOURCES_os_linux})
     SET(libunwind_la_SOURCES_os_local           ${libunwind_la_SOURCES_os_linux_local})
@@ -137,6 +141,17 @@ elseif(CLR_CMAKE_PLATFORM_FREEBSD)
     SET(libunwind_la_SOURCES_arm_os             arm/Gos-freebsd.c)
     SET(libunwind_la_SOURCES_arm_os_local       arm/Los-freebsd.c)
     list(APPEND libunwind_coredump_la_SOURCES   coredump/_UCD_access_reg_freebsd.c)
+elseif(CLR_CMAKE_PLATFORM_SUNOS)
+    SET(libunwind_la_SOURCES_os                 ${libunwind_la_SOURCES_os_solaris})
+    SET(libunwind_la_SOURCES_os_local           ${libunwind_la_SOURCES_os_solaris_local})
+    SET(libunwind_la_SOURCES_x86_os             x86/Gos-solaris.c)
+    SET(libunwind_x86_la_SOURCES_os             x86/getcontext-solaris.S)
+    SET(libunwind_la_SOURCES_x86_os_local       x86/Los-solaris.c)
+    SET(libunwind_la_SOURCES_x86_64_os          x86_64/Gos-solaris.c)
+    SET(libunwind_la_SOURCES_x86_64_os_local    x86_64/Los-solaris.c)
+    SET(libunwind_la_SOURCES_arm_os             arm/Gos-solaris.c)
+    SET(libunwind_la_SOURCES_arm_os_local       arm/Los-solaris.c)
+    list(APPEND libunwind_coredump_la_SOURCES   coredump/_UCD_access_reg_solaris.c)
 endif()
 
 # List of arch-independent files needed by both local-only and generic

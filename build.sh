@@ -517,11 +517,15 @@ echo "Commencing CoreCLR Repo build"
 # Obtain the location of the bash script to figure out where the root of the repo is.
 __ProjectRoot="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# Use uname to determine what the CPU is.
-CPUName=$(uname -p)
-# Some Linux platforms report unknown for platform, but the arch for machine.
-if [ "$CPUName" == "unknown" ]; then
-    CPUName=$(uname -m)
+if command -v isainfo &> /dev/null; then
+    # On SmartOS 'isainfo -k' returns the actual architecture, while uname is a 32-bit process and returns i386 (for historical reasons)
+    CPUName=$(isainfo -k)
+else
+    CPUName=$(uname -p)
+    # Some Linux platforms report unknown for platform, but the arch for machine.
+    if [ "$CPUName" == "unknown" ]; then
+        CPUName=$(uname -m)
+    fi
 fi
 
 case $CPUName in
@@ -653,7 +657,7 @@ __StaticAnalyzer=0
 # processors available to a single process.
 if [ `uname` = "FreeBSD" ]; then
   __NumProc=`sysctl hw.ncpu | awk '{ print $2+1 }'`
-elif [ `uname` = "NetBSD" ]; then
+elif [ `uname` = "NetBSD" -o `uname` = "SunOS" ]; then
   __NumProc=$(($(getconf NPROCESSORS_ONLN)+1))
 elif [ `uname` = "Darwin" ]; then
   __NumProc=$(($(getconf _NPROCESSORS_ONLN)+1))
