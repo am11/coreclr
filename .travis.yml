@@ -1,0 +1,18 @@
+language: c++
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      # Build dependencies
+      - liblttng-ust-dev
+
+install:
+  - mkdir $HOME/usr
+  - export PATH="$HOME/usr/bin:$PATH"
+  - curl -LO https://github.com/Kitware/CMake/releases/download/v3.15.4/cmake-3.15.4-Linux-x86_64.sh
+  - sh cmake-3.15.4-Linux-x86_64.sh --skip-license --prefix=$HOME/usr
+
+script:
+  - ./build.sh -gcc
